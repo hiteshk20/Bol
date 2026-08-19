@@ -1,0 +1,70 @@
+# Builds the app and publishes it to GitHub Pages.
+#
+# WHY THIS EXISTS
+# ---------------
+# Pushing the repo source to Pages serves a white screen: index.html points at
+# /src/main.jsx, and a browser cannot execute JSX or resolve bare npm imports.
+# Only Vite's build output (plain JS/CSS in dist/) is servable, and dist/ is
+# git-ignored on purpose. This workflow does the build in CI and uploads just
+# that folder, so the repo stays clean and Pages always gets runnable files.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main] # change if your default branch is named differently
+  workflow_dispatch: # lets you re-run it by hand from the Actions tab
+
+# Required for the deploy step to authenticate against Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; the newest push wins.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `npm ci` installs the exact versions in package-lock.json.
+      - run: npm ci
+
+      # BASE_PATH makes asset URLs work from a project subpath such as
+      # https://<user>.github.io/<repo>/ . It is read by vite.config.js.
+      - run: npm run build
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/
+
+      # Pages has no SPA rewrite rule. Copying index.html to 404.html means a
+      # refresh on any deep link still boots the app instead of 404ing.
+      - run: cp dist/index.html dist/404.html
+
+      # Stops Pages running the output through Jekyll, which would silently
+      # drop any file or folder whose name begins with an underscore.
+      - run: touch dist/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
