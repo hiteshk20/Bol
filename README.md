@@ -42,3 +42,7 @@ Your recents and favourites stay on your device.
 About
 
 Bol is built for listeners who want to read lyrics the way they were actually written — especially Hindi, Punjabi, and Urdu songs where transliteration can lose the original meaning.
+
+BASE_PATH=/<your-repo-name>/ npm run build
+cp dist/index.html dist/404.html && touch dist/.nojekyll
+npx gh-pages -d dist
